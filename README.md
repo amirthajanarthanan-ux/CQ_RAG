@@ -2,7 +2,8 @@
 
 ## Project Screenshot
 
-![alt text](Image.png)
+![Clear Quote Bot - Project Screenshot](Image.png)
+
 
 ## Overview
 
