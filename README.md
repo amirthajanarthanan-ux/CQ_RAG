@@ -2,8 +2,7 @@
 
 ## Project Screenshot
 
-![Clear Quote Bot - Project Screenshot](Image.png)
-
+![AI-Powered Vehicle Inspection Knowledge Assistant](./image.png)
 
 ## Overview
 
