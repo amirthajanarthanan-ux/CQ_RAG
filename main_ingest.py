@@ -1,9 +1,9 @@
 import os
 import logging
-from langchain.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_chroma import Chroma
 from config import config
 
 # Setup logging
@@ -90,8 +90,6 @@ def ingest_documents(pdf_paths: list, persist_directory: str = "docs/chroma"):
 if __name__ == "__main__":
     ingest_documents(
         pdf_paths=[
-            "data/8.4 Connector and Integration Guides",
-            "data/identityiq-doc-8.4"
-        ],
+            "data"],
         persist_directory=config.CHROMA_PERSIST_DIRECTORY
     )

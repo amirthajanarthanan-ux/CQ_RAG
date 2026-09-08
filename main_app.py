@@ -1,203 +1,471 @@
 import streamlit as st
 
+# ---------------------------------------------------------
+# Streamlit configuration
+# ---------------------------------------------------------
 st.set_page_config(
     page_title="Knowledge Bot",
     layout="wide"
 )
+
+# ---------------------------------------------------------
+# Standard libraries
+# ---------------------------------------------------------
 import os
 import uuid
 import pandas as pd
+
+# ---------------------------------------------------------
+# Load environment variables FIRST
+# ---------------------------------------------------------
 from dotenv import load_dotenv
-from config import config 
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ENV_PATH = os.path.join(BASE_DIR, ".env")
+
+load_dotenv(dotenv_path=ENV_PATH)
+
+# ---------------------------------------------------------
+# Import configuration AFTER loading .env
+# ---------------------------------------------------------
 from config import config
-from langchain_groq import ChatGroq
-from langgraph.graph import StateGraph
 
-# LangGraph and LangChain imports
-from langchain_community.embeddings import HuggingFaceEmbeddings
+# ---------------------------------------------------------
+# LangChain / LangGraph imports
+# ---------------------------------------------------------
+from langchain_groq import ChatGroq
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_chroma import Chroma
+
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import START, MessagesState, StateGraph
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from langchain_community.vectorstores import Chroma
-from langchain_groq import ChatGroq
-# Updated (non-deprecated) embeddings
+
+from langchain_core.messages import HumanMessage, SystemMessage
 
 
-import config as cfg
+# =========================================================
+# GROQ API KEY
+# =========================================================
 
-print("Config file loaded from:")
-print(cfg.__file__)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 
-print("Config object:")
-print(config)
+if not GROQ_API_KEY:
+    st.error(
+        "❌ GROQ_API_KEY is missing. "
+        "Please add your Groq API key to the .env file."
+    )
+    st.stop()
 
-print("Available attributes:")
-print(dir(config))
 
-# Load environment variables
-load_dotenv()
+# =========================================================
+# EMBEDDING MODEL
+# =========================================================
 
-# Ensure GROQ API Key is set
-if not os.getenv("GROQ_API_KEY"):
-    st.warning("⚠️ GROQ_API_KEY not set. Some functionality may fail.")
-else:
-    os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
-
-# --- Initialize embeddings model ---
 @st.cache_resource
 def get_embeddings_model():
-    return HuggingFaceEmbeddings(model_name=config.EMBEDDING_MODEL_NAME)
+    return HuggingFaceEmbeddings(
+        model_name=config.EMBEDDING_MODEL_NAME
+    )
+
 
 embeddings = get_embeddings_model()
 
-# --- Initialize Chroma vector store ---
+
+# =========================================================
+# CHROMA VECTOR DATABASE
+# =========================================================
+
 @st.cache_resource
 def get_vector_store(_embed_func):
-    # Leading underscore avoids Streamlit caching/serialization issues
     return Chroma(
         persist_directory=config.CHROMA_PERSIST_DIRECTORY,
         embedding_function=_embed_func
     )
 
+
 vectordb = get_vector_store(embeddings)
 
-# --- Initialize ChatGroq model ---
+
+# =========================================================
+# GROQ CHAT MODEL
+# =========================================================
+
 @st.cache_resource
 def get_chat_model():
     return ChatGroq(
-        model="llama-3.1-8b-instant",
-        temperature=0.3,
-        max_tokens=400
+        api_key=GROQ_API_KEY,
+        model=config.CHAT_MODEL_NAME,
+        temperature=config.TEMPERATURE,
+        max_tokens=config.MAX_TOKENS
     )
+
 
 model = get_chat_model()
 
-# --- LangGraph node function ---
-def call_model(state: MessagesState):
-    system_prompt = (
-        "You are an assistant for academic question-answering tasks. "
-        "Use the retrieved context to answer concisely (max 3 sentences). "
-        "If unsure, say 'I don’t know'."
-    )
-    messages = [SystemMessage(content=system_prompt)] + state["messages"]
-    response = model.invoke(messages)
-    return {"messages": response}
 
-# --- Build and compile the LangGraph workflow ---
+# =========================================================
+# LANGGRAPH MODEL NODE
+# =========================================================
+
+def call_model(state: MessagesState):
+
+    system_prompt = (
+        "You are an assistant for ClearQuote automotive "
+        "knowledge-question answering. "
+        "Use the retrieved context to answer the user's question. "
+        "Answer concisely in a maximum of 3 sentences. "
+        "If the answer is not available in the retrieved context, "
+        "say 'I don't know based on the provided context.'"
+    )
+
+    messages = [
+        SystemMessage(content=system_prompt)
+    ] + state["messages"]
+
+    response = model.invoke(messages)
+
+    return {
+        "messages": [response]
+    }
+
+
+# =========================================================
+# LANGGRAPH WORKFLOW
+# =========================================================
+
 @st.cache_resource
 def get_langgraph_app():
-    workflow = StateGraph(state_schema=MessagesState)
-    workflow.add_node("model", call_model)
-    workflow.add_edge(START, "model")
+
+    workflow = StateGraph(
+        state_schema=MessagesState
+    )
+
+    workflow.add_node(
+        "model",
+        call_model
+    )
+
+    workflow.add_edge(
+        START,
+        "model"
+    )
+
     memory = MemorySaver()
-    return workflow.compile(checkpointer=memory)
+
+    return workflow.compile(
+        checkpointer=memory
+    )
+
 
 app = get_langgraph_app()
 
-# --- Streamlit UI Setup ---
+
+# =========================================================
+# STREAMLIT UI
+# =========================================================
 
 st.title("Clear_Quote Bot 🚘")
 
-# --- Session State ---
+
+# =========================================================
+# SESSION STATE
+# =========================================================
+
 if "threads" not in st.session_state:
-    st.session_state.threads = {}  # thread_id → list of messages
+    st.session_state.threads = {}
+
 if "active_thread" not in st.session_state:
     st.session_state.active_thread = str(uuid.uuid4())
-if st.session_state.active_thread not in st.session_state.threads:
-    st.session_state.threads[st.session_state.active_thread] = []
 
-# --- Sidebar ---
+if (
+    st.session_state.active_thread
+    not in st.session_state.threads
+):
+    st.session_state.threads[
+        st.session_state.active_thread
+    ] = []
+
+
+# =========================================================
+# SIDEBAR
+# =========================================================
+
 with st.sidebar:
+
     st.header("📂 Documents & Chats")
 
-    # Upload PDFs
-    uploaded_file = st.file_uploader("Upload PDF", type=["pdf"])
+    # -----------------------------------------------------
+    # PDF Upload
+    # -----------------------------------------------------
+
+    uploaded_file = st.file_uploader(
+        "Upload PDF",
+        type=["pdf"]
+    )
+
     if uploaded_file:
-        save_path = os.path.join(config.PDF_SOURCE_DIRECTORY, uploaded_file.name)
+
+        save_path = os.path.join(
+            config.PDF_SOURCE_DIRECTORY,
+            uploaded_file.name
+        )
+
         with open(save_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
-        st.success(f"Uploaded: {uploaded_file.name}")
-        st.info("👉 Re-run ingestion separately to add this file to ChromaDB.")
 
-    # Chat thread dropdown
-    thread_ids = list(st.session_state.threads.keys())
+        st.success(
+            f"Uploaded: {uploaded_file.name}"
+        )
+
+        st.info(
+            "👉 Run the ingestion process separately "
+            "to add this document to ChromaDB."
+        )
+
+    # -----------------------------------------------------
+    # Chat Sessions
+    # -----------------------------------------------------
+
+    thread_ids = list(
+        st.session_state.threads.keys()
+    )
+
     selected_thread = st.selectbox(
         "Select chat session",
         thread_ids,
-        index=thread_ids.index(st.session_state.active_thread)
+        index=thread_ids.index(
+            st.session_state.active_thread
+        )
     )
+
     st.session_state.active_thread = selected_thread
 
-    # Start new chat
+    # -----------------------------------------------------
+    # New Chat
+    # -----------------------------------------------------
+
     if st.button("➕ New Chat"):
+
         new_id = str(uuid.uuid4())
+
         st.session_state.threads[new_id] = []
+
         st.session_state.active_thread = new_id
+
         st.rerun()
 
-# --- Active chat history ---
-messages = st.session_state.threads[st.session_state.active_thread]
 
-# --- Display previous messages ---
+# =========================================================
+# ACTIVE CHAT HISTORY
+# =========================================================
+
+messages = st.session_state.threads[
+    st.session_state.active_thread
+]
+
+
+# =========================================================
+# DISPLAY PREVIOUS MESSAGES
+# =========================================================
+
 for message in messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
 
-# --- Chat input ---
-if prompt := st.chat_input("Ask a question..."):
-    # Add user message
-    messages.append({"role": "user", "content": prompt})
+    with st.chat_message(message["role"]):
+
+        st.markdown(
+            message["content"]
+        )
+
+
+# =========================================================
+# CHAT INPUT
+# =========================================================
+
+if prompt := st.chat_input(
+    "Ask a question..."
+):
+
+    # -----------------------------------------------------
+    # Store user message
+    # -----------------------------------------------------
+
+    messages.append(
+        {
+            "role": "user",
+            "content": prompt
+        }
+    )
+
     with st.chat_message("user"):
+
         st.markdown(prompt)
 
+    # -----------------------------------------------------
+    # Assistant response
+    # -----------------------------------------------------
+
     with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
+
+        with st.spinner("Searching knowledge base..."):
+
             try:
-                # Retrieve top 3 relevant docs
-                docs = vectordb.similarity_search_with_score(prompt, k=3)
+
+                # =========================================
+                # RETRIEVE TOP 3 DOCUMENTS
+                # =========================================
+
+                docs = (
+                    vectordb
+                    .similarity_search_with_score(
+                        prompt,
+                        k=3
+                    )
+                )
+
+                # =========================================
+                # PREPARE RETRIEVED DOCUMENT DATA
+                # =========================================
+
                 _docs = pd.DataFrame(
                     [
                         (
                             prompt,
                             doc[0].page_content,
-                            doc[0].metadata.get("source"),
-                            doc[0].metadata.get("page"),
+                            doc[0].metadata.get(
+                                "source"
+                            ),
+                            doc[0].metadata.get(
+                                "page"
+                            ),
                             doc[1]
                         )
                         for doc in docs
                     ],
-                    columns=["query", "paragraph", "document", "page_number", "relevant_score"]
+                    columns=[
+                        "query",
+                        "paragraph",
+                        "document",
+                        "page_number",
+                        "relevant_score"
+                    ]
                 )
 
-                current_context = "\n\n".join(_docs["paragraph"])
+                # =========================================
+                # BUILD CONTEXT
+                # =========================================
 
-                # Construct HumanMessage
+                current_context = (
+                    "\n\n".join(
+                        _docs["paragraph"]
+                    )
+                    if not _docs.empty
+                    else ""
+                )
+
+                # =========================================
+                # CREATE HUMAN MESSAGE
+                # =========================================
+
                 current_turn_message = HumanMessage(
-                    content=f"Context: {current_context}\n\nQuestion: {prompt}"
+                    content=(
+                        f"Retrieved Context:\n"
+                        f"{current_context}\n\n"
+                        f"Question:\n"
+                        f"{prompt}"
+                    )
                 )
 
-                # Call LangGraph app
+                # =========================================
+                # RUN LANGGRAPH
+                # =========================================
+
                 result = app.invoke(
-                    {"messages": [current_turn_message]},
-                    config={"configurable": {"thread_id": st.session_state.active_thread}},
+                    {
+                        "messages": [
+                            current_turn_message
+                        ]
+                    },
+                    config={
+                        "configurable": {
+                            "thread_id":
+                                st.session_state.active_thread
+                        }
+                    }
                 )
-                ai_response = result["messages"][-1].content
 
-                # Extract metadata
-                source_doc = _docs["document"][0] if not _docs.empty else "N/A"
-                page_nums = _docs["page_number"].drop_duplicates().head(3).astype(str).tolist()
-                page_str = ", ".join(page_nums) if page_nums else "N/A"
+                # =========================================
+                # GET AI RESPONSE
+                # =========================================
+
+                ai_response = (
+                    result["messages"][-1].content
+                )
+
+                # =========================================
+                # SOURCE INFORMATION
+                # =========================================
+
+                if not _docs.empty:
+
+                    source_doc = (
+                        _docs["document"].iloc[0]
+                    )
+
+                    page_nums = (
+                        _docs["page_number"]
+                        .drop_duplicates()
+                        .head(3)
+                        .astype(str)
+                        .tolist()
+                    )
+
+                else:
+
+                    source_doc = "N/A"
+                    page_nums = []
+
+                page_str = (
+                    ", ".join(page_nums)
+                    if page_nums
+                    else "N/A"
+                )
+
+                # =========================================
+                # FINAL RESPONSE
+                # =========================================
 
                 final_response = (
-                    f"{ai_response}\n\n**Source**: {source_doc}\n**Pages**: {page_str}"
+                    f"{ai_response}\n\n"
+                    f"**Source:** {source_doc}\n"
+                    f"**Pages:** {page_str}"
                 )
 
-                st.markdown(final_response)
-                messages.append({"role": "assistant", "content": final_response})
+                st.markdown(
+                    final_response
+                )
+
+                # =========================================
+                # SAVE ASSISTANT MESSAGE
+                # =========================================
+
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": final_response
+                    }
+                )
 
             except Exception as e:
-                st.error(f"Error: {e}")
+
+                st.error(
+                    f"❌ Error: {e}"
+                )
+
                 messages.append(
-                    {"role": "assistant", "content": "⚠️ I encountered an error. Please try again."}
+                    {
+                        "role": "assistant",
+                        "content":
+                            "⚠️ I encountered an error. "
+                            "Please try again."
+                    }
                 )

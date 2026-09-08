@@ -1,11 +1,8 @@
 import os
-import config as cfg
 
-print("Config file loaded from:")
-print(cfg.__file__)
 class Config:
     """
-    Configuration class to manage file paths, embeddings, and model settings.
+    Configuration class for the ClearQuote RAG application.
     """
 
     # PDF Configuration
@@ -18,16 +15,14 @@ class Config:
     CHUNK_OVERLAP = 100
 
     # Chat Model Configuration
-    CHAT_MODEL_NAME = "llama-3.1-8b-instant"
+    CHAT_MODEL_NAME = "openai/gpt-oss-20b"
     MAX_TOKENS = 400
     TEMPERATURE = 0.3
-
-    # Environment Variables
-    GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
     def __init__(self):
         os.makedirs(self.PDF_SOURCE_DIRECTORY, exist_ok=True)
         os.makedirs(self.CHROMA_PERSIST_DIRECTORY, exist_ok=True)
 
-# Global instance
+
+# Global configuration instance
 config = Config()
