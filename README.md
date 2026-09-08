@@ -1,115 +1,187 @@
-# AI-Powered Vehicle Inspection Knowledge Assistant (RAG)
-![alt text](image.png)
+# 🚘 AI-Powered Vehicle Inspection Knowledge Assistant (RAG)
+
+## Project Screenshot
+
+![Project Screenshot](./image-1.png)
+
 ## Overview
 
-This project is a Retrieval-Augmented Generation (RAG) based AI assistant designed for the automotive vehicle inspection domain. Inspired by ClearQuote's vehicle inspection workflow, the system enables users to interact with vehicle inspection manuals, damage annotation guidelines, and operational documents using natural language queries.
+The **AI-Powered Vehicle Inspection Knowledge Assistant** is a Retrieval-Augmented Generation (RAG) application designed for the automotive vehicle inspection domain. It enables users to ask natural-language questions about vehicle inspection procedures, damage annotation guidelines, validation processes, and operational manuals.
 
-The solution combines semantic search, vector databases, and Large Language Models (LLMs) to deliver accurate, context-aware, and source-backed answers in real time.
+The system combines **document processing, semantic embeddings, vector search, retrieval-augmented generation, conversational memory, and Large Language Models (LLMs)** to provide context-aware answers with source and page references.
+
+The solution is implemented as an interactive **Streamlit application** and is designed to support faster and more consistent access to automotive inspection knowledge.
+
+---
 
 ## Business Context
 
-Vehicle inspection platforms are widely used by rental and commercial fleet operators to ensure:
+Automotive inspection operations depend on large volumes of inspection manuals, annotation guidelines, validation procedures, and operational documentation.
 
-* Guided vehicle image capture
-* Automated damage detection
-* Alerts for newly identified damage
-* Transparent vehicle handovers
-* Increased driver accountability
-* Reduced damage-related operational costs
+Manually searching these documents can be time-consuming and may result in inconsistent interpretation of inspection rules.
 
-Inspection teams often rely on extensive documentation and annotation manuals. Manually searching these documents is time-consuming and can lead to inconsistencies.
+This project addresses the problem by providing an AI-powered knowledge assistant that can:
 
-This project addresses that challenge by providing an AI-powered assistant capable of retrieving relevant information instantly from vehicle inspection and damage annotation documents.
+- Retrieve relevant information from inspection documentation.
+- Answer domain-specific questions using retrieved context.
+- Provide source and page references for traceability.
+- Support conversational, multi-turn interactions.
+- Reduce the time required to manually search large documentation.
+
+The solution is particularly relevant to **vehicle inspection, damage annotation, validation, and automotive quality-control workflows**.
 
 ---
 
 ## Key Features
 
-* PDF document ingestion and processing
-* Intelligent text chunking for efficient retrieval
-* Semantic search using HuggingFace embeddings
-* Context-aware document retrieval with ChromaDB
-* Natural language question answering using Llama 3.1-8B
-* Conversational memory for multi-turn interactions
-* Interactive Streamlit web application
-* Source-backed responses for improved reliability
-* Privacy-first architecture with local document processing
+- **PDF Document Ingestion** – Upload and process vehicle inspection and operational documents.
+- **Intelligent Text Chunking** – Splits documents into retrieval-friendly chunks with configurable chunk size and overlap.
+- **Semantic Search** – Uses HuggingFace `multilingual-e5-large` embeddings to represent document content as vectors.
+- **Vector Retrieval** – ChromaDB performs similarity-based retrieval of relevant document sections.
+- **RAG-Based Question Answering** – Retrieved context is passed to an LLM to generate grounded responses.
+- **Conversational Memory** – LangGraph maintains conversation state for multi-turn interactions.
+- **Source Traceability** – Responses include the source document and relevant page numbers.
+- **Interactive Streamlit UI** – Provides an easy-to-use interface for document upload and question answering.
+- **Local Document Processing** – Source documents and vector data are maintained within the application environment.
 
 ---
 
 ## System Architecture
 
-1. Upload vehicle inspection manuals and annotation documents.
-2. Documents are split into semantic chunks.
-3. HuggingFace embeddings convert text into vector representations.
-4. ChromaDB stores and retrieves relevant document sections.
-5. Retrieved context is provided to ChatGroq's Llama 3.1-8B model.
-6. The LLM generates accurate and context-aware responses.
-7. Results are displayed through an interactive Streamlit interface.
+```text
+                ┌─────────────────────────┐
+                │   Vehicle Documents     │
+                │      PDF Manuals        │
+                └────────────┬────────────┘
+                             │
+                             ▼
+                ┌─────────────────────────┐
+                │   PDF Text Extraction   │
+                │     & Chunking          │
+                └────────────┬────────────┘
+                             │
+                             ▼
+                ┌─────────────────────────┐
+                │ HuggingFace Embeddings  │
+                │ multilingual-e5-large   │
+                └────────────┬────────────┘
+                             │
+                             ▼
+                ┌─────────────────────────┐
+                │       ChromaDB          │
+                │    Vector Database      │
+                └────────────┬────────────┘
+                             │
+                    Similarity Search
+                             │
+                             ▼
+                ┌─────────────────────────┐
+                │   Relevant Context      │
+                │      Retrieval           │
+                └────────────┬────────────┘
+                             │
+                             ▼
+                ┌─────────────────────────┐
+                │       LangGraph         │
+                │ Conversation Management │
+                └────────────┬────────────┘
+                             │
+                             ▼
+                ┌─────────────────────────┐
+                │   Groq LLM              │
+                │   openai/gpt-oss-20b    │
+                └────────────┬────────────┘
+                             │
+                             ▼
+                ┌─────────────────────────┐
+                │ Streamlit Application   │
+                │ Answer + Source + Page  │
+                └─────────────────────────┘
+## RAG Workflow
+
+1. Upload automotive inspection manuals and operational documents in PDF format.
+2. Extract and split document content into configurable text chunks.
+3. Generate semantic embeddings using `intfloat/multilingual-e5-large`.
+4. Store the embeddings in **ChromaDB** for persistent vector retrieval.
+5. Convert the user's natural-language question into a semantic retrieval query.
+6. Retrieve the top relevant document sections using similarity search.
+7. Pass the retrieved context and user question through **LangGraph** to manage the conversational workflow.
+8. Generate a concise, context-grounded response using the **Groq-hosted `openai/gpt-oss-20b` LLM**.
+9. Display the generated answer with source document and page-level references for traceability.
 
 ---
 
 ## Tech Stack
 
-| Component            | Technology                     |
-| -------------------- | ------------------------------ |
-| Programming Language | Python                         |
-| Framework            | LangChain                      |
-| User Interface       | Streamlit                      |
-| Embedding Model      | intfloat/multilingual-e5-large |
-| Vector Database      | ChromaDB                       |
-| Large Language Model | ChatGroq (Llama 3.1-8B)        |
-| Document Processing  | PDF Parsing & Text Chunking    |
+| Component | Technology |
+|---|---|
+| Programming Language | Python |
+| GenAI Framework | LangChain |
+| Workflow / Orchestration | LangGraph |
+| User Interface | Streamlit |
+| Embedding Model | `intfloat/multilingual-e5-large` |
+| Vector Database | ChromaDB |
+| Large Language Model | Groq – `openai/gpt-oss-20b` |
+| Document Processing | PDF Parsing & Text Chunking |
+| ML / Deep Learning | PyTorch, HuggingFace |
+| Configuration | Python Virtual Environment, `.env` |
 
 ---
 
 ## Project Highlights
 
-* Developed an end-to-end RAG pipeline for automotive inspection documentation.
-* Implemented semantic retrieval using HuggingFace multilingual embeddings and ChromaDB.
-* Built a conversational AI assistant capable of answering vehicle inspection and damage annotation queries with source-aware responses.
-* Deployed a user-friendly Streamlit application for real-time document interaction.
-* Designed a privacy-focused architecture where documents remain within the local environment.
+- Developed an **end-to-end Retrieval-Augmented Generation (RAG) pipeline** for automotive vehicle inspection and annotation documentation.
+- Implemented **semantic document retrieval** using HuggingFace embeddings and ChromaDB.
+- Integrated **LangGraph** to manage conversational state and multi-turn question answering.
+- Built a **context-grounded LLM pipeline** that generates responses based on retrieved automotive documentation.
+- Implemented **source and page-level traceability** to improve answer verification and explainability.
+- Developed an interactive **Streamlit application** supporting PDF upload, document querying, and conversational interaction.
+- Designed configurable **chunk size, chunk overlap, embedding model, LLM parameters, and persistent vector storage**.
+- Applied practical **ML/GenAI debugging, dependency management, model integration, and application deployment** during end-to-end development.
 
 ---
 
-## Benefits
+## Business Benefits
 
-### Faster Knowledge Access
+### ⚡ Faster Knowledge Access
 
-Retrieve relevant inspection procedures and annotation guidelines within seconds.
+Enables inspection teams to retrieve relevant procedures, validation rules, and annotation guidelines within seconds instead of manually searching large documentation.
 
-### Improved Consistency
+### 🎯 Improved Consistency
 
-Provides standardized responses based on approved documentation.
+Provides responses grounded in approved inspection documentation, helping standardize interpretation of vehicle inspection and annotation procedures.
 
-### Reduced Manual Effort
+### 📉 Reduced Manual Effort
 
-Eliminates the need to manually search through large PDF manuals.
+Automates document search and knowledge retrieval, reducing repetitive manual effort for inspection and operations teams.
 
-### Scalable Architecture
+### 🔍 Improved Traceability
 
-Can be extended to support service manuals, repair procedures, compliance documents, and technical knowledge bases.
+Source document and page references allow users to verify the information supporting each generated response.
 
-### Automotive Industry Relevance
+### 📈 Scalable Knowledge Architecture
 
-Supports AI-driven vehicle inspection workflows and damage assessment operations.
+The RAG architecture can be extended to additional automotive knowledge sources such as service manuals, repair procedures, compliance documents, technical specifications, and operational guidelines.
 
 ---
 
 ## Future Enhancements
 
-* Multimodal RAG for document images and diagrams
-* Integration with vehicle damage detection models (YOLOv8)
-* Voice-based inspection assistant
-* Automated inspection report generation
-* Agentic workflows using LangGraph
-* Multi-document knowledge graph retrieval
+- **Multimodal RAG** for inspection images, diagrams, tables, and visual documentation.
+- Integration with the **YOLOv8 Vehicle Damage Detection System** to combine visual damage detection with textual inspection knowledge.
+- **Hybrid retrieval** combining semantic and keyword-based search for improved domain-specific retrieval.
+- **Reranking models** to improve the relevance of retrieved documents.
+- Retrieval evaluation using **Precision@K, Recall@K, and MRR**.
+- **Voice-enabled inspection assistant** using speech-to-text and text-to-speech.
+- Automated **inspection report generation** using retrieved evidence.
+- Advanced **agentic workflows with LangGraph** for multi-step inspection tasks.
 
 ---
 
 ## Conclusion
 
-The AI-Powered Vehicle Inspection Knowledge Assistant demonstrates the practical application of Generative AI and Retrieval-Augmented Generation in the automotive industry.
+The **AI-Powered Vehicle Inspection Knowledge Assistant** demonstrates the practical application of **Machine Learning, Generative AI, and Retrieval-Augmented Generation** to an automotive domain problem.
 
-By combining HuggingFace embeddings, ChromaDB, LangChain, Streamlit, and ChatGroq's Llama 3.1-8B model, the solution delivers accurate, context-aware, and source-backed answers from vehicle inspection documentation, helping inspection teams improve efficiency, consistency, and decision-making.
+The system combines **Python, HuggingFace embeddings, ChromaDB, LangChain, LangGraph, Groq LLMs, and Streamlit** to transform unstructured vehicle inspection documentation into an interactive knowledge-retrieval system capable of generating context-aware and source-backed responses.
+
+This project demonstrates practical **ML Engineer capabilities across document processing, semantic embeddings, vector databases, RAG architecture, LLM integration, conversational workflows, retrieval systems, application development, and end-to-end debugging**.
